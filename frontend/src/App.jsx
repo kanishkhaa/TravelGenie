@@ -6,6 +6,8 @@ import ComingSoon from "./components/common/ComingSoon";
 import Home from "./pages/Home/Home";
 import DestinationSearch from "./pages/Destinations/DestinationSearch";
 import DestinationDetails from "./pages/Destinations/DestinationDetails";
+import SmartPlanner from "./pages/Planner/SmartPlanner";
+import MyTrips from "./pages/Trips/MyTrips";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
@@ -60,12 +62,7 @@ function App() {
         );
 
       case "trips":
-        return (
-          <ComingSoon
-            feature="My Trips"
-            onBack={() => handleNavigation("explore")}
-          />
-        );
+        return <MyTrips />;
 
       case "favorites":
         return (
@@ -84,12 +81,7 @@ function App() {
         );
 
       case "planner":
-        return (
-          <ComingSoon
-            feature="AI-Powered Smart Travel Planner"
-            onBack={() => handleNavigation("explore")}
-          />
-        );
+        return <SmartPlanner />;
 
       case "profile":
         return (
