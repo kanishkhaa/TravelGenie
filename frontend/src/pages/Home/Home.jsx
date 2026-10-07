@@ -9,12 +9,14 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 function Home({ onNavigate }) {
   return (
+    
     <Box
       sx={{
         minHeight: "calc(100vh - 72px)",
         backgroundColor: "#fafafa",
       }}
     >
+      
       <Container maxWidth="xl">
         <Box
           sx={{
@@ -24,6 +26,7 @@ function Home({ onNavigate }) {
             py: 8,
           }}
         >
+          
           <Box
             sx={{
               maxWidth: 780,

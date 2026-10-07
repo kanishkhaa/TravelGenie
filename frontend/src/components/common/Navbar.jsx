@@ -9,7 +9,7 @@ import {
 
 import ExploreOutlinedIcon from "@mui/icons-material/ExploreOutlined";
 
-function Navbar({ currentPage, onNavigate }) {
+function Navbar({ currentPage, onNavigate, isLoggedIn }) {
   const navItems = [
     {
       label: "Home",
@@ -139,7 +139,6 @@ function Navbar({ currentPage, onNavigate }) {
               </Button>
             ))}
           </Box>
-
           {/* Profile / Login placeholder */}
           <Button
             variant="outlined"
@@ -164,6 +163,33 @@ function Navbar({ currentPage, onNavigate }) {
           >
             Profile
           </Button>
+          
+          {!isLoggedIn && (
+  <>
+    <Button
+      onClick={() => onNavigate("register")}
+      sx={{
+        textTransform: "none",
+        fontWeight: 600,
+        color: "#0f766e",
+      }}
+    >
+      Register
+    </Button>
+
+    <Button
+      onClick={() => onNavigate("login")}
+      sx={{
+        textTransform: "none",
+        fontWeight: 600,
+        color: "#0f766e",
+      }}
+    >
+      Login
+    </Button>
+  </>
+)}
+ 
         </Toolbar>
       </Container>
     </AppBar>
