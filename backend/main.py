@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pymongo import MongoClient
+from pydantic import BaseModel, EmailStr, Field
+import bcrypt 
 from typing import Optional
 import json
 import os
