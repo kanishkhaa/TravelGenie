@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import Optional
 import json
 import os
+
+from planner import generate_travel_plan
 
 
 # --------------------------------------------------
@@ -110,3 +114,68 @@ def get_destinations(
         "count": len(results),
         "destinations": results
     }
+
+
+class PlannerRequest(BaseModel):
+    starting_location: str = "Delhi"
+    destination: str = "Anywhere in India"
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    duration_days: Optional[int] = None
+    max_budget: float = Field(default=50000)
+    travelers: int = 2
+    interests: list[str] = []
+    pace: str = "Balanced"
+    stay_style: str = "Mid-range"
+    group_type: str = "Friends"
+    crowd_preference: str = "Mix"
+    travel_mode: str = "Mixed"
+    previous_trips: list[dict] = []
+
+
+@app.get("/planner/options")
+def planner_options():
+    names = sorted(
+        {
+            item.get("destination_name")
+            for item in destinations
+            if item.get("destination_name")
+        }
+    )
+    states = sorted({item.get("state") for item in destinations if item.get("state")})
+    regions = sorted({item.get("region") for item in destinations if item.get("region")})
+    trip_types = sorted(
+        {
+            trip
+            for item in destinations
+            for trip in (item.get("trip_types") or [])
+        }
+    )
+    return {
+        "destinations": names,
+        "states": states,
+        "regions": regions,
+        "interests": trip_types,
+        "starting_cities": [
+            "Delhi",
+            "Mumbai",
+            "Bengaluru",
+            "Chennai",
+            "Kolkata",
+            "Hyderabad",
+            "Pune",
+            "Ahmedabad",
+            "Jaipur",
+            "Kochi",
+            "Chandigarh",
+            "Lucknow",
+            "Goa",
+            "Guwahati",
+            "Dehradun",
+        ],
+    }
+
+
+@app.post("/planner/generate")
+def create_travel_plan(payload: PlannerRequest):
+    return generate_travel_plan(payload.model_dump(), destinations)
