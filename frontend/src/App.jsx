@@ -2,7 +2,10 @@ import { useState } from "react";
 
 import Navbar from "./components/common/Navbar";
 import ComingSoon from "./components/common/ComingSoon";
-
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import ProfileForm from "./pages/ProfileForm";
+import Profile from "./pages/Profile"; 
 import Home from "./pages/Home/Home";
 import DestinationSearch from "./pages/Destinations/DestinationSearch";
 import DestinationDetails from "./pages/Destinations/DestinationDetails";
@@ -14,6 +17,9 @@ function App() {
 
   const [selectedDestination, setSelectedDestination] =
     useState(null);
+  
+  
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const handleNavigation = (page) => {
     setSelectedDestination(null);
@@ -37,7 +43,11 @@ function App() {
     switch (currentPage) {
       case "home":
         return <Home onNavigate={handleNavigation} />;
-
+      case "register":
+        return <Register onNavigate={handleNavigation} />;
+      case "login":
+        return <Login onNavigate={handleNavigation} />;
+      
       case "explore":
         return (
           <DestinationSearch
@@ -83,11 +93,17 @@ function App() {
       case "planner":
         return <SmartPlanner />;
 
-      case "profile":
+      case "profileform":
         return (
-          <ComingSoon
-            feature="User Profile & Authentication"
+          <ProfileForm
             onBack={() => handleNavigation("explore")}
+            onNavigate={handleNavigation}
+          />
+        );
+        case "profile":
+        return (
+           <Profile
+              onNavigate={handleNavigation}
           />
         );
 
@@ -101,6 +117,7 @@ function App() {
       <Navbar
         currentPage={currentPage}
         onNavigate={handleNavigation}
+        isLoggedIn={isLoggedIn}
       />
 
       {renderPage()}
