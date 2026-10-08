@@ -1,72 +1,91 @@
 const API_BASE_URL = "http://127.0.0.1:8000";
+const LEGACY_PLANS_KEY = "travelgenie_saved_plans";
+const LEGACY_IMPORT_KEY = "travelgenie_saved_plans_imported_v1";
+let legacyImportPromise = null;
 
-const HISTORY_KEY = "travelgenie_trip_history";
-const SAVED_PLANS_KEY = "travelgenie_saved_plans";
+const authHeaders = () => {
+  const token = localStorage.getItem("access_token");
+  if (!token) throw new Error("Please log in to manage your trips.");
+  return { Authorization: `Bearer ${token}` };
+};
+
+async function tripRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: { ...authHeaders(), ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "Trip request failed. Please try again.");
+  return data;
+}
 
 export const getPlannerOptions = async () => {
   const response = await fetch(`${API_BASE_URL}/planner/options`);
-  if (!response.ok) {
-    throw new Error("Failed to load planner options");
-  }
+  if (!response.ok) throw new Error("Failed to load planner options");
   return response.json();
 };
+
+export async function getPlannerDraft() {
+  if (!localStorage.getItem("access_token")) return null;
+  const data = await tripRequest("/planner/draft");
+  return data.form || null;
+}
+
+export async function savePlannerDraft(form) {
+  return tripRequest("/planner/draft", { method: "PUT", body: JSON.stringify({ form }) });
+}
 
 export const generateTravelPlan = async (payload) => {
   const response = await fetch(`${API_BASE_URL}/planner/generate`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "Failed to generate travel plan.");
+  return data;
+};
 
-  if (!response.ok) {
-    throw new Error("Failed to generate travel plan");
+export const getSavedPlans = async () => {
+  if (!localStorage.getItem(LEGACY_IMPORT_KEY)) {
+    if (!legacyImportPromise) {
+      legacyImportPromise = (async () => {
+        let legacyPlans = [];
+        try { legacyPlans = JSON.parse(localStorage.getItem(LEGACY_PLANS_KEY) || "[]"); } catch { legacyPlans = []; }
+        for (const plan of legacyPlans) {
+          if (plan?.result && plan?.form) await saveFullPlan(plan.result, plan.form);
+        }
+        localStorage.setItem(LEGACY_IMPORT_KEY, "true");
+        localStorage.removeItem(LEGACY_PLANS_KEY);
+      })().finally(() => { legacyImportPromise = null; });
+    }
+    await legacyImportPromise;
   }
-
-  return response.json();
+  const data = await tripRequest("/trips");
+  return data.trips || [];
 };
 
-export const getTripHistory = () => {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-  } catch {
-    return [];
-  }
+export const saveFullPlan = async (result, form, title = "") => {
+  const destinations = (result?.plan?.recommended_destinations || []).map((item) => item.name);
+  const tripTitle = title.trim() || destinations.join(" · ") || form.destination || "India getaway";
+  const data = await tripRequest("/trips", {
+    method: "POST",
+    body: JSON.stringify({ title: tripTitle, notes: "", status: "planned", form, result }),
+  });
+  return data.trip;
 };
 
-export const saveTripToHistory = (plan, form) => {
-  const previous = getTripHistory();
-  const entry = {
-    created_at: new Date().toISOString(),
-    destination_ids: (plan?.recommended_destinations || []).map((item) => item.id),
-    destination_names: (plan?.recommended_destinations || []).map((item) => item.name),
-    interests: form.interests || [],
-    starting_location: form.starting_location,
-    destination: form.destination,
-  };
-  const next = [entry, ...previous].slice(0, 12);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-  return next;
+export const updateSavedPlan = async (trip) => {
+  const data = await tripRequest(`/trips/${trip.id}`, {
+    method: "PUT",
+    body: JSON.stringify({ title: trip.title, notes: trip.notes || "", form: trip.form, result: trip.result }),
+  });
+  return data.trip;
 };
 
-export const getSavedPlans = () => {
-  try {
-    return JSON.parse(localStorage.getItem(SAVED_PLANS_KEY) || "[]");
-  } catch {
-    return [];
-  }
-};
+export const completeSavedPlan = (id) => tripRequest(`/trips/${id}/complete`, { method: "PATCH" });
+export const deleteSavedPlan = (id) => tripRequest(`/trips/${id}`, { method: "DELETE" });
 
-export const saveFullPlan = (result, form) => {
-  const previous = getSavedPlans();
-  const entry = {
-    id: Date.now(),
-    saved_at: new Date().toISOString(),
-    form,
-    result,
-  };
-  const next = [entry, ...previous].slice(0, 8);
-  localStorage.setItem(SAVED_PLANS_KEY, JSON.stringify(next));
-  return next;
-};
+export const createTripInvite = async (id, email) => tripRequest(`/trips/${id}/invites`, { method: "POST", body: JSON.stringify({ email }) });
+
+export const acceptTripInvite = async (token) => tripRequest(`/trip-invites/${encodeURIComponent(token)}/accept`, { method: "POST" });

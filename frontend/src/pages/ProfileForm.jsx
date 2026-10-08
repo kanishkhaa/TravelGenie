@@ -177,9 +177,9 @@ function ProfileForm({ onNavigate }) {
 
   const [formData, setFormData] = useState({
     // Personal Details
-    name: "",
+    name: localStorage.getItem("user_name") || "",
     phone: "",
-    email: "",
+    email: localStorage.getItem("user_email") || "",
     dateOfBirth: "",
     age: "",
     gender: "",
@@ -231,16 +231,16 @@ useEffect(() => {
 
   const loadProfile = async () => {
 
-    const userId = localStorage.getItem("user_id");
-
-    if (!userId) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
       return;
     }
 
     try {
 
       const response = await fetch(
-        `http://127.0.0.1:8000/profile/${userId}`
+        "http://127.0.0.1:8000/profile/me",
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const data = await response.json();
@@ -391,45 +391,10 @@ useEffect(() => {
     newErrors.name = "Name is required";
   }
 
-  if (!formData.phone.trim()) {
-    newErrors.phone = "Mobile number is required";
-  }
-
-  if (!formData.email.trim()) {
-    newErrors.email = "Email is required";
-  }
-
-  if (!formData.dateOfBirth) {
-    newErrors.dateOfBirth = "Date of birth is required";
-  }
+  if (!formData.email.trim()) newErrors.email = "Email is required";
+  if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required to calculate your age";
 
   // Gender is optional, so no validation here
-
-  if (!formData.state) {
-    newErrors.state = "State is required";
-  }
-
-  if (!formData.city.trim()) {
-    newErrors.city = "City is required";
-  }
-
-  if (!formData.address.trim()) {
-    newErrors.address = "Address is required";
-  }
-
-  if (!formData.pincode.trim()) {
-    newErrors.pincode = "Pincode is required";
-  }
-
-  if (!formData.emergencyName.trim()) {
-    newErrors.emergencyName =
-      "Emergency contact name is required";
-  }
-
-  if (!formData.emergencyPhone.trim()) {
-    newErrors.emergencyPhone =
-      "Emergency contact number is required";
-  }
 
   setErrors(newErrors);
 
@@ -513,8 +478,8 @@ const handleSubmit = async (event) => {
   }
 
   const userId = localStorage.getItem("user_id");
-
-  if (!userId) {
+  const token = localStorage.getItem("access_token");
+  if (!userId || !token) {
     alert("User session not found. Please login/register again.");
     return;
   }
@@ -526,6 +491,7 @@ const handleSubmit = async (event) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           user_id: userId,
@@ -546,7 +512,7 @@ const handleSubmit = async (event) => {
     alert("Profile saved successfully!");
 
     // Go to Explore page
-    onNavigate("explore");
+    onNavigate("profile");
 
   } catch (error) {
     console.error("Profile save error:", error);
@@ -760,14 +726,13 @@ const handleSubmit = async (event) => {
                     onChange={handleChange}
                     error={Boolean(errors.name)}
                     helperText={errors.name}
-                    required
                     sx={inputStyle}
                   />
                 </Box>
 
 
                 <Box>
-                  <FieldLabel required>
+                  <FieldLabel>
                     Mobile Number
                   </FieldLabel>
 
@@ -779,7 +744,6 @@ const handleSubmit = async (event) => {
                     onChange={handleChange}
                     error={Boolean(errors.phone)}
                     helperText={errors.phone}
-                    required
                     sx={inputStyle}
                   />
                 </Box>
@@ -803,7 +767,6 @@ const handleSubmit = async (event) => {
                   onChange={handleChange}
                   error={Boolean(errors.email)}
                   helperText={errors.email}
-                  required
                   sx={inputStyle}
                 />
               </Box>
@@ -836,7 +799,6 @@ const handleSubmit = async (event) => {
                     onChange={handleDateOfBirthChange}
                     error={Boolean(errors.dateOfBirth)}
                     helperText={errors.dateOfBirth}
-                    required
                     InputLabelProps={{
                       shrink: true,
                     }}
@@ -949,7 +911,7 @@ const handleSubmit = async (event) => {
               >
 
                 <Box>
-                  <FieldLabel required>
+                  <FieldLabel>
                     State
                   </FieldLabel>
 
@@ -961,7 +923,6 @@ const handleSubmit = async (event) => {
                     onChange={handleChange}
                     error={Boolean(errors.state)}
                     helperText={errors.state}
-                    required
                     sx={inputStyle}
                   >
                     <MenuItem value="Tamil Nadu">
@@ -1004,7 +965,7 @@ const handleSubmit = async (event) => {
 
 
                 <Box>
-                  <FieldLabel required>
+                  <FieldLabel>
                     City
                   </FieldLabel>
 
@@ -1016,7 +977,6 @@ const handleSubmit = async (event) => {
                     onChange={handleChange}
                     error={Boolean(errors.city)}
                     helperText={errors.city}
-                    required
                     sx={inputStyle}
                   />
                 </Box>
@@ -1027,7 +987,7 @@ const handleSubmit = async (event) => {
               {/* Address + Pincode */}
 
               <Box sx={{ mt: 3 }}>
-                <FieldLabel required>
+                <FieldLabel>
                   Address
                 </FieldLabel>
 
@@ -1041,14 +1001,13 @@ const handleSubmit = async (event) => {
   onChange={handleChange}
   error={Boolean(errors.address)}
   helperText={errors.address}
-  required
   sx={inputStyle}
 />
               </Box>
 
 
               <Box sx={{ mt: 3 }}>
-                <FieldLabel required>
+                <FieldLabel>
                   Pincode
                 </FieldLabel>
 
@@ -1060,7 +1019,6 @@ const handleSubmit = async (event) => {
   onChange={handleChange}
   error={Boolean(errors.pincode)}
   helperText={errors.pincode}
-  required
   sx={inputStyle}
 />
               </Box>
@@ -1087,7 +1045,7 @@ const handleSubmit = async (event) => {
               >
 
                 <Box>
-                  <FieldLabel required>
+                  <FieldLabel>
                     Emergency Contact Name
                   </FieldLabel>
 
@@ -1099,14 +1057,13 @@ const handleSubmit = async (event) => {
   onChange={handleChange}
   error={Boolean(errors.emergencyName)}
   helperText={errors.emergencyName}
-  required
   sx={inputStyle}
 />
                 </Box>
 
 
                 <Box>
-                  <FieldLabel required>
+                  <FieldLabel>
                     Emergency Contact Number
                   </FieldLabel>
 
@@ -1118,7 +1075,6 @@ const handleSubmit = async (event) => {
   onChange={handleChange}
   error={Boolean(errors.emergencyPhone)}
   helperText={errors.emergencyPhone}
-  required
   sx={inputStyle}
 />
                 </Box>
@@ -1175,7 +1131,6 @@ const handleSubmit = async (event) => {
 
               <CheckboxGroup
                 label="Travel Type"
-                required
                 options={[
                   "Solo",
                   "Friends",
@@ -1209,7 +1164,6 @@ const handleSubmit = async (event) => {
 
               <CheckboxGroup
                 label="Preferred Destinations"
-                required
                 options={[
                   "Beaches",
                   "Hill Stations",
@@ -1280,7 +1234,6 @@ const handleSubmit = async (event) => {
                     onChange={handleChange}
                     error={Boolean(errors.duration)}
                     helperText={errors.duration}
-                    required
                     sx={inputStyle}
                   >
                     <MenuItem value="1 Day">
@@ -1327,7 +1280,6 @@ const handleSubmit = async (event) => {
                     onChange={handleChange}
                     error={Boolean(errors.budget)}
                     helperText={errors.budget}
-                    required
                     sx={inputStyle}
                   >
                     <MenuItem value="Below ₹5,000">

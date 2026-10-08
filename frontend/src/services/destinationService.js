@@ -1,5 +1,18 @@
 const API_BASE_URL = "http://127.0.0.1:8000";
 
+export const getPersonalizedRecommendations = async (filters = {}) => {
+  const token = localStorage.getItem("access_token");
+  if (!token) throw new Error("Sign in to see recommendations tailored to your profile.");
+  const response = await fetch(`${API_BASE_URL}/recommendations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(filters),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "Could not load personalized recommendations.");
+  return data;
+};
+
 export const getDestinations = async ({
   search = "",
   state = "",

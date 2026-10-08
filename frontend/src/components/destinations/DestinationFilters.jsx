@@ -38,11 +38,9 @@ function DestinationFilters({
           <MenuItem value="">All States</MenuItem>
           <MenuItem value="Goa">Goa</MenuItem>
           <MenuItem value="Kerala">Kerala</MenuItem>
-          <MenuItem value="TamilNadu">Tamil Nadu</MenuItem>
+          <MenuItem value="Tamil Nadu">Tamil Nadu</MenuItem>
           <MenuItem value="Rajasthan">Rajasthan</MenuItem>
-          <MenuItem value="HimachalPradesh">
-            HimachalPradesh
-          </MenuItem>
+          <MenuItem value="Himachal Pradesh">Himachal Pradesh</MenuItem>
         </Select>
       </FormControl>
 
@@ -76,9 +74,9 @@ function DestinationFilters({
           onChange={(e) => setBudget(e.target.value)}
         >
           <MenuItem value="">Any Budget</MenuItem>
-          <MenuItem value="Budget">Budget</MenuItem>
-          <MenuItem value="Moderate">Moderate</MenuItem>
-          <MenuItem value="Luxury">Luxury</MenuItem>
+          <MenuItem value="Budget">Budget · up to ₹3,000/day</MenuItem>
+          <MenuItem value="Moderate">Moderate · up to ₹6,000/day</MenuItem>
+          <MenuItem value="Luxury">Luxury · ₹10,000+/day</MenuItem>
         </Select>
       </FormControl>
     </Box>

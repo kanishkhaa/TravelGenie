@@ -1,959 +1,103 @@
-import { useEffect, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import {
-  Box,
-  Button,
-  Container,
-  Typography,
-  Divider,
-  Chip,
-  Paper,
+  Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, CircularProgress,
+  Container, Paper, Skeleton, Typography,
 } from "@mui/material";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import FlightTakeoffRoundedIcon from "@mui/icons-material/FlightTakeoffRounded";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
+import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
+import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
+import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 
-import EditIcon from "@mui/icons-material/Edit";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import PersonIcon from "@mui/icons-material/Person";
-import ContactEmergencyIcon from "@mui/icons-material/ContactEmergency";
-import FlightTakeoffIcon from "@mui/icons-material/FlightTakeoff";
-import HotelIcon from "@mui/icons-material/Hotel";
-import RestaurantIcon from "@mui/icons-material/Restaurant";
-import SecurityIcon from "@mui/icons-material/Security";
+const panelSx = { border: "1px solid #e4eae6", borderRadius: 4, bgcolor: "#fff", boxShadow: "0 8px 28px rgba(27,45,38,.035)" };
 
+function PreferenceGroup({ label, value, accent = false }) {
+  const values = Array.isArray(value) ? value.filter(Boolean) : value ? [value] : [];
+  return <Box><Typography variant="caption" color="text.secondary" fontWeight={800} letterSpacing=".08em">{label.toUpperCase()}</Typography>{values.length ? <Box sx={{ display: "flex", flexWrap: "wrap", gap: .8, mt: .85 }}>{values.map((item) => <Chip key={item} label={item} size="small" sx={{ bgcolor: accent ? "#eaf4f1" : "#f2f4f2", color: accent ? "#176c62" : "#52615a", fontWeight: 700, borderRadius: 2 }} />)}</Box> : <Typography color="text.disabled" sx={{ mt: .6 }}>Add your preferences</Typography>}</Box>;
+}
 
-function Profile({ onNavigate }) {
+function DetailSection({ title, icon, fields }) {
+  return <Accordion disableGutters elevation={0} sx={{ ...panelSx, "&:before": { display: "none" }, mb: 1.2 }}>
+    <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />} sx={{ px: { xs: 2, sm: 3 }, minHeight: 68, "& .MuiAccordionSummary-content": { alignItems: "center", gap: 1.4, my: 1.5 } }}>
+      <Box sx={{ width: 38, height: 38, borderRadius: 2.5, display: "grid", placeItems: "center", bgcolor: "#eaf4f1", color: "primary.main" }}>{icon}</Box>
+      <Typography fontWeight={800}>{title}</Typography>
+    </AccordionSummary>
+    <AccordionDetails sx={{ px: { xs: 2, sm: 3 }, pt: 0, pb: 3 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2,1fr)" }, gap: 2.2 }}>
+        {fields.map(([label, value]) => <Box key={label}><Typography variant="caption" color="text.secondary" fontWeight={800} letterSpacing=".07em">{label.toUpperCase()}</Typography>{Array.isArray(value) ? <Box sx={{ display: "flex", flexWrap: "wrap", gap: .65, mt: .75 }}>{value.length ? value.map((entry) => <Chip key={entry} label={entry} size="small" variant="outlined" sx={{ borderColor: "#e3e9e4" }} />) : <Typography color="text.disabled">Not added</Typography>}</Box> : <Typography sx={{ mt: .45, fontWeight: 650, color: value ? "text.primary" : "text.disabled" }}>{value || "Not added"}</Typography>}</Box>)}
+      </Box>
+    </AccordionDetails>
+  </Accordion>;
+}
 
+export default function Profile({ onNavigate }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-
-  // --------------------------------------------------
-  // Get Profile
-  // --------------------------------------------------
-
   useEffect(() => {
-
-    const fetchProfile = async () => {
-
-      const userId = localStorage.getItem("user_id");
-
-      if (!userId) {
-        setError("User session not found. Please login again.");
-        setLoading(false);
-        return;
-      }
-
+    const load = async () => {
       try {
-
-        const response = await fetch(
-          `http://127.0.0.1:8000/profile/${userId}`
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.detail || "Unable to load profile.");
-          setLoading(false);
-          return;
-        }
-
+        const token = localStorage.getItem("access_token");
+        const response = await fetch("http://127.0.0.1:8000/profile/me", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "We couldn’t load your profile.");
         setProfile(data.profile);
-
-      } catch (error) {
-
-        console.error("Profile fetch error:", error);
-
-        setError(
-          "Unable to connect to the server. Please make sure the backend is running."
-        );
-
-      } finally {
-
-        setLoading(false);
-
-      }
+      } catch (reason) { setError(reason.message || "Unable to connect to your profile."); }
+      finally { setLoading(false); }
     };
-
-    fetchProfile();
-
+    load();
   }, []);
 
+  const completion = useMemo(() => {
+    if (!profile) return 0;
+    const fields = [profile.name, profile.age, profile.duration, profile.budget, profile.travelStyle?.length, profile.destinations?.length, profile.travelTypes?.length];
+    return Math.round(fields.filter(Boolean).length / fields.length * 100);
+  }, [profile]);
 
-  // --------------------------------------------------
-  // Loading
-  // --------------------------------------------------
+  if (loading) return <Box sx={{ minHeight: "calc(100vh - 72px)", bgcolor: "#f5f8f6", py: 5 }}><Container maxWidth="xl"><Skeleton height={250} sx={{ borderRadius: 6 }} /><Skeleton height={240} sx={{ mt: 2, borderRadius: 5 }} /></Container></Box>;
+  if (error) return <Box sx={{ minHeight: "calc(100vh - 72px)", bgcolor: "#f5f8f6", py: 5 }}><Container maxWidth="xl"><Alert severity="info" action={<Button onClick={() => onNavigate("profileform")} sx={{ textTransform: "none" }}>Complete profile</Button>} sx={{ borderRadius: 3 }}>{error}</Alert></Container></Box>;
 
-  if (loading) {
+  const name = profile?.name || localStorage.getItem("user_name") || "Traveler";
+  const interestCount = (profile?.travelStyle || []).length + (profile?.destinations || []).length;
 
-    return (
-      <Box
-        sx={{
-          minHeight: "calc(100vh - 72px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#f8fafc",
-        }}
-      >
-        <Typography
-          sx={{
-            color: "#64748b",
-            fontSize: "1rem",
-          }}
-        >
-          Loading profile...
-        </Typography>
-      </Box>
-    );
-
-  }
-
-
-  // --------------------------------------------------
-  // Error
-  // --------------------------------------------------
-
-  if (error) {
-
-    return (
-      <Box
-        sx={{
-          minHeight: "calc(100vh - 72px)",
-          backgroundColor: "#f8fafc",
-          py: 6,
-        }}
-      >
-
-        <Container maxWidth="md">
-
-          <Paper
-            elevation={0}
-            sx={{
-              p: 6,
-              borderRadius: "20px",
-              textAlign: "center",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: 700,
-                color: "#111827",
-                mb: 2,
-              }}
-            >
-              Complete your profile to get personalized travel recommendations🌍✈️
-            </Typography>
-
-            
-
-            <Button
-              variant="contained"
-              onClick={() => onNavigate("profileform")}
-              sx={{
-                backgroundColor: "#0f766e",
-                textTransform: "none",
-                borderRadius: "10px",
-                px: 4,
-                fontWeight: 600,
-
-                "&:hover": {
-                  backgroundColor: "#115e59",
-                },
-              }}
-            >
-              Complete Profile
-            </Button>
-
-          </Paper>
-
-        </Container>
-
-      </Box>
-    );
-
-  }
-
-
-  // --------------------------------------------------
-  // Display Value
-  // --------------------------------------------------
-
-  const showValue = (value) => {
-
-    if (
-      value === null ||
-      value === undefined ||
-      value === "" ||
-      (Array.isArray(value) && value.length === 0)
-    ) {
-      return (
-        <Typography
-          component="span"
-          sx={{
-            color: "#94a3b8",
-            fontStyle: "italic",
-          }}
-        >
-          Not provided
-        </Typography>
-      );
-    }
-
-
-    // Array values
-    if (Array.isArray(value)) {
-
-      return (
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 1,
-            mt: 0.5,
-          }}
-        >
-
-          {value.map((item, index) => (
-
-            <Chip
-              key={`${item}-${index}`}
-              label={item}
-              size="small"
-              sx={{
-                backgroundColor: "#f0fdfa",
-                color: "#0f766e",
-                border: "1px solid #ccfbf1",
-                fontWeight: 600,
-              }}
-            />
-
-          ))}
-
+  return <Box sx={{ minHeight: "calc(100vh - 72px)", bgcolor: "#f5f8f6", py: { xs: 2.5, md: 4.5 }, background: "linear-gradient(180deg,#edf4f0 0%,#f7f9f7 410px,#f5f8f6 100%)" }}>
+    <Container maxWidth="xl">
+      <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => onNavigate("explore")} sx={{ mb: 2, textTransform: "none", color: "#53645d", fontWeight: 700 }}>Back to exploring</Button>
+      <Paper elevation={0} sx={{ ...panelSx, position: "relative", overflow: "hidden", p: { xs: 2.5, sm: 4, md: 5 }, mb: 2.5, color: "#fff", background: "radial-gradient(ellipse at 90% 0%,rgba(180,218,193,.28),transparent 38%),linear-gradient(120deg,#143f39,#1b6559)" }}>
+        <Box sx={{ position: "absolute", right: -40, bottom: -160, width: 360, height: 360, border: "1px solid rgba(255,255,255,.14)", borderRadius: "50%", boxShadow: "0 0 0 42px rgba(255,255,255,.03),0 0 0 90px rgba(255,255,255,.025)" }} />
+        <Box sx={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2.2 }}>
+            <Box sx={{ width: { xs: 60, sm: 76 }, height: { xs: 60, sm: 76 }, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: "27px", bgcolor: "#f3c794", color: "#294c42", fontSize: { xs: 27, sm: 34 }, fontWeight: 900, boxShadow: "0 10px 28px rgba(5,28,22,.18)" }}>{name.charAt(0).toUpperCase()}</Box>
+            <Box><Typography variant="overline" sx={{ color: "rgba(244,249,245,.7)", fontWeight: 800, letterSpacing: ".15em" }}>YOUR TRAVEL PROFILE</Typography><Typography variant="h3" sx={{ fontWeight: 850, letterSpacing: "-.055em", lineHeight: 1.1, fontSize: { xs: "2rem", md: "2.8rem" } }}>Hello, {name.split(" ")[0]}.</Typography><Typography sx={{ color: "rgba(244,249,245,.75)", mt: .7 }}>{profile?.email || localStorage.getItem("user_email") || "Your personal travel blueprint"}</Typography></Box>
+          </Box>
+          <Button variant="contained" startIcon={<EditOutlinedIcon />} onClick={() => onNavigate("profileform")} sx={{ position: "relative", bgcolor: "rgba(255,255,255,.13)", border: "1px solid rgba(255,255,255,.28)", color: "#fff", px: 2.2, py: 1.2, textTransform: "none", "&:hover": { bgcolor: "rgba(255,255,255,.2)" } }}>Edit profile</Button>
         </Box>
-      );
+        <Box sx={{ position: "relative", mt: 3.5, display: "flex", alignItems: "center", gap: 1.2 }}><CircularProgress variant="determinate" value={completion} size={38} thickness={5} sx={{ color: "#f3c794", "& .MuiCircularProgress-circleDeterminate": { strokeLinecap: "round" } }} /><Typography variant="body2" sx={{ color: "rgba(244,249,245,.82)" }}><b>{completion}% complete</b> · {interestCount ? `${interestCount} preference signals help personalize your matches` : "Add travel preferences to improve your matches"}</Typography></Box>
+      </Paper>
 
-    }
-
-
-    return value;
-
-  };
-
-
-  // --------------------------------------------------
-  // Profile Field
-  // --------------------------------------------------
-
-  const ProfileField = ({ label, value }) => (
-
-    <Box>
-
-      <Typography
-        sx={{
-          fontSize: "0.82rem",
-          fontWeight: 600,
-          color: "#64748b",
-          mb: 0.7,
-          textTransform: "uppercase",
-          letterSpacing: "0.03em",
-        }}
-      >
-        {label}
-      </Typography>
-
-      <Typography
-        component="div"
-        sx={{
-          fontSize: "1rem",
-          fontWeight: 500,
-          color: "#1e293b",
-          minHeight: "24px",
-          lineHeight: 1.6,
-        }}
-      >
-        {showValue(value)}
-      </Typography>
-
-    </Box>
-
-  );
-
-
-  // --------------------------------------------------
-  // Section Header
-  // --------------------------------------------------
-
-  const SectionHeader = ({
-    icon,
-    title,
-    description,
-  }) => (
-
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 1.5,
-        mb: 3,
-      }}
-    >
-
-      <Box
-        sx={{
-          width: 42,
-          height: 42,
-          borderRadius: "12px",
-          backgroundColor: "#f0fdfa",
-          color: "#0f766e",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {icon}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4,1fr)" }, gap: 1.4, mb: 2.5 }}>
+        {[["Your budget", profile?.budget || "Add budget"], ["Trip length", profile?.duration || "Choose a duration"], ["Starting from", profile?.city || "Add your city"], ["Travel mood", profile?.travelStyle?.[0] || "Set your style"]].map(([label, value]) => <Paper key={label} elevation={0} sx={{ ...panelSx, p: { xs: 1.6, sm: 2.2 } }}><Typography variant="caption" color="text.secondary" fontWeight={800} letterSpacing=".06em">{label.toUpperCase()}</Typography><Typography sx={{ mt: .45, fontWeight: 800, fontSize: { xs: ".95rem", sm: "1.05rem" } }}>{value}</Typography></Paper>)}
       </Box>
 
-      <Box>
-
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 700,
-            color: "#111827",
-          }}
-        >
-          {title}
-        </Typography>
-
-        {description && (
-          <Typography
-            sx={{
-              color: "#64748b",
-              fontSize: "0.9rem",
-              mt: 0.3,
-            }}
-          >
-            {description}
-          </Typography>
-        )}
-
-      </Box>
-
-    </Box>
-
-  );
-
-
-  // --------------------------------------------------
-  // Main UI
-  // --------------------------------------------------
-
-  return (
-
-    <Box
-      sx={{
-        minHeight: "calc(100vh - 72px)",
-        backgroundColor: "#f8fafc",
-        py: {
-          xs: 3,
-          md: 5,
-        },
-      }}
-    >
-
-      <Container maxWidth="md">
-
-
-        {/* ==========================================
-            PROFILE HEADER
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: {
-                xs: "flex-start",
-                sm: "center",
-              },
-              gap: 2,
-              flexDirection: {
-                xs: "column",
-                sm: "row",
-              },
-            }}
-          >
-
-            {/* Profile identity */}
-
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-              }}
-            >
-
-              <Box
-                sx={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  backgroundColor: "#ccfbf1",
-                  color: "#0f766e",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.6rem",
-                  fontWeight: 800,
-                }}
-              >
-                {profile?.name
-                  ? profile.name.charAt(0).toUpperCase()
-                  : "U"}
-              </Box>
-
-
-              <Box>
-
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 800,
-                    color: "#111827",
-                  }}
-                >
-                  {profile?.name || "User"}
-                </Typography>
-
-                <Typography
-                  sx={{
-                    color: "#64748b",
-                    mt: 0.5,
-                  }}
-                >
-                  {profile?.email || "Email not provided"}
-                </Typography>
-
-              </Box>
-
-            </Box>
-
-
-            {/* Edit Button */}
-
-            <Button
-              variant="contained"
-              startIcon={<EditIcon />}
-              onClick={() => onNavigate("profileform")}
-              sx={{
-                backgroundColor: "#0f766e",
-                borderRadius: "10px",
-                textTransform: "none",
-                fontWeight: 700,
-                px: 3,
-                py: 1.2,
-
-                "&:hover": {
-                  backgroundColor: "#115e59",
-                },
-              }}
-            >
-              Edit Profile
-            </Button>
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            PERSONAL INFORMATION
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <SectionHeader
-            icon={<PersonIcon />}
-            title="Personal Information"
-            description="Your basic personal details"
-          />
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-              gap: 3,
-            }}
-          >
-
-            <ProfileField
-              label="Full Name"
-              value={profile.name}
-            />
-
-            <ProfileField
-              label="Gender"
-              value={profile.gender}
-            />
-
-            <ProfileField
-              label="Date of Birth"
-              value={profile.dateOfBirth}
-            />
-
-            <ProfileField
-              label="Age"
-              value={profile.age}
-            />
-
-            <ProfileField
-              label="Mobile Number"
-              value={profile.phone}
-            />
-
-            <ProfileField
-              label="Email Address"
-              value={profile.email}
-            />
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            CONTACT & LOCATION
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <SectionHeader
-            icon={<PersonIcon />}
-            title="Contact & Location"
-            description="Your current location details"
-          />
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-              gap: 3,
-            }}
-          >
-
-            <ProfileField
-              label="State"
-              value={profile.state}
-            />
-
-            <ProfileField
-              label="City"
-              value={profile.city}
-            />
-
-            <ProfileField
-              label="Pincode"
-              value={profile.pincode}
-            />
-
-            <Box sx={{ gridColumn: { xs: "auto", sm: "1 / -1" } }}>
-              <ProfileField
-                label="Address"
-                value={profile.address}
-              />
-            </Box>
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            EMERGENCY CONTACT
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <SectionHeader
-            icon={<ContactEmergencyIcon />}
-            title="Emergency Contact"
-            description="Information used in case of an emergency"
-          />
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-              gap: 3,
-            }}
-          >
-
-            <ProfileField
-              label="Contact Name"
-              value={profile.emergencyName}
-            />
-
-            <ProfileField
-              label="Contact Number"
-              value={profile.emergencyPhone}
-            />
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            TRAVEL PREFERENCES
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <SectionHeader
-            icon={<FlightTakeoffIcon />}
-            title="Travel Preferences"
-            description="Your preferred travel experience"
-          />
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-              gap: 3,
-            }}
-          >
-
-            <ProfileField
-              label="Travel Type"
-              value={profile.travelTypes}
-            />
-
-            <ProfileField
-              label="Preferred Destinations"
-              value={profile.destinations}
-            />
-
-            <ProfileField
-              label="Travel Duration"
-              value={profile.duration}
-            />
-
-            <ProfileField
-              label="Budget Per Person"
-              value={profile.budget}
-            />
-
-            <ProfileField
-              label="Travel Style"
-              value={profile.travelStyle}
-            />
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            ACCOMMODATION & TRANSPORTATION
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <SectionHeader
-            icon={<HotelIcon />}
-            title="Accommodation & Transportation"
-            description="Your stay and travel preferences"
-          />
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-              gap: 3,
-            }}
-          >
-
-            <ProfileField
-              label="Accommodation"
-              value={profile.accommodation}
-            />
-
-            <ProfileField
-              label="Accommodation Budget"
-              value={profile.accommodationBudget}
-            />
-
-            <ProfileField
-              label="Transportation"
-              value={profile.transportation}
-            />
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            FOOD & ACTIVITIES
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <SectionHeader
-            icon={<RestaurantIcon />}
-            title="Food & Activities"
-            description="Your food preferences and preferred activities"
-          />
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-              gap: 3,
-            }}
-          >
-
-            <ProfileField
-              label="Food Preference"
-              value={profile.foodPreference}
-            />
-
-            <ProfileField
-              label="Preferred Cuisines"
-              value={profile.cuisines}
-            />
-
-            <Box sx={{ gridColumn: { xs: "auto", sm: "1 / -1" } }}>
-              <ProfileField
-                label="Activities"
-                value={profile.activities}
-              />
-            </Box>
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            SAFETY & ACCESSIBILITY
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <SectionHeader
-            icon={<SecurityIcon />}
-            title="Safety & Accessibility"
-            description="Your safety and accessibility preferences"
-          />
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-              gap: 3,
-            }}
-          >
-
-            <ProfileField
-              label="Safety Level"
-              value={profile.safetyLevel}
-            />
-
-            <ProfileField
-              label="Accessibility"
-              value={profile.accessibility}
-            />
-
-          </Box>
-
-        </Paper>
-
-
-        {/* ==========================================
-            OTHER PREFERENCES
-        ========================================== */}
-
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "20px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "#ffffff",
-            p: {
-              xs: 3,
-              md: 4,
-            },
-            mb: 3,
-          }}
-        >
-
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              color: "#111827",
-              mb: 3,
-            }}
-          >
-            Other Preferences
-          </Typography>
-
-          <ProfileField
-            label="Additional Preferences"
-            value={profile.otherPreferences}
-          />
-
-        </Paper>
-
-
-        {/* ==========================================
-            BOTTOM NAVIGATION
-        ========================================== */}
-
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => onNavigate("explore")}
-          sx={{
-            color: "#0f766e",
-            textTransform: "none",
-            fontWeight: 600,
-            mb: 4,
-          }}
-        >
-          Back to Explore
-        </Button>
-
-      </Container>
-
-    </Box>
-
-  );
-
+      <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2.5, md: 3.5 }, mb: 2.5 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap", mb: 3 }}><Box><Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "primary.main" }}><FlightTakeoffRoundedIcon /><Typography variant="overline" fontWeight={850} letterSpacing=".13em">THE WAY YOU LIKE TO TRAVEL</Typography></Box><Typography variant="h5" fontWeight={850} letterSpacing="-.035em" sx={{ mt: .5 }}>Your travel blueprint</Typography></Box><Button endIcon={<ArrowForwardRoundedIcon />} onClick={() => onNavigate("explore")} sx={{ textTransform: "none", fontWeight: 750 }}>See your recommendations</Button></Box>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5 }}>
+          <PreferenceGroup label="Travel style" value={profile?.travelStyle} accent />
+          <PreferenceGroup label="Places you love" value={profile?.destinations} accent />
+          <PreferenceGroup label="Travel with" value={profile?.travelTypes} />
+          <PreferenceGroup label="Ideal duration & budget" value={[profile?.duration, profile?.budget].filter(Boolean)} />
+        </Box>
+      </Paper>
+
+      <Typography variant="overline" color="text.secondary" fontWeight={850} letterSpacing=".13em" sx={{ display: "block", mb: 1.2, ml: .5 }}>YOUR PROFILE DETAILS</Typography>
+      <DetailSection title="Personal details" icon={<PersonOutlineRoundedIcon />} fields={[["Full name", profile?.name], ["Age", profile?.age ? `${profile.age} years` : ""], ["Date of birth", profile?.dateOfBirth], ["Gender", profile?.gender], ["Email address", profile?.email], ["Phone", profile?.phone]]} />
+      <DetailSection title="Home & emergency contact" icon={<LocationOnOutlinedIcon />} fields={[["City", profile?.city], ["State", profile?.state], ["Address", profile?.address], ["Pincode", profile?.pincode], ["Emergency contact", profile?.emergencyName], ["Emergency number", profile?.emergencyPhone]]} />
+      <DetailSection title="Stay, food & getting around" icon={<RestaurantOutlinedIcon />} fields={[["Accommodation", profile?.accommodation], ["Accommodation budget", profile?.accommodationBudget], ["Transport preferences", profile?.transportation], ["Food preferences", profile?.foodPreference], ["Favorite cuisines", profile?.cuisines], ["Activities", profile?.activities]]} />
+      <DetailSection title="Safety & accessibility" icon={<SecurityOutlinedIcon />} fields={[["Preferred safety level", profile?.safetyLevel], ["Accessibility", profile?.accessibility], ["Additional preferences", profile?.otherPreferences]]} />
+    </Container>
+  </Box>;
 }
-
-export default Profile;

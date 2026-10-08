@@ -11,6 +11,8 @@ import {
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
+import FavoriteButton from "../common/FavoriteButton";
+import DestinationCover from "./DestinationCover";
 
 function DestinationCard({ destination, onViewDetails }) {
   return (
@@ -31,26 +33,12 @@ function DestinationCard({ destination, onViewDetails }) {
         },
       }}
       onClick={() => onViewDetails(destination)}
+      data-destination-card
     >
-      {/* Image Placeholder */}
-      <Box
-        sx={{
-          height: 190,
-          background:
-            "linear-gradient(135deg, #e8eef5 0%, #f5f7fa 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          fontWeight={500}
-        >
-          Destination Image
-        </Typography>
-      </Box>
+      <DestinationCover destinationName={destination.destination_name} height={190}>
+        <Chip label={destination.region || "Discover India"} sx={{ bgcolor: "rgba(255,255,255,.86)", fontWeight: 700 }} />
+        <FavoriteButton destination={destination} />
+      </DestinationCover>
 
       <CardContent sx={{ p: 3 }}>
         {/* Location */}

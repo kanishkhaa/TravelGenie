@@ -13,7 +13,7 @@
 
     import { useState } from "react";   
 
-    function Login({ onNavigate }) {
+    function Login({ onNavigate, onAuthenticated }) {
     const [showPassword, setShowPassword] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -79,6 +79,8 @@ console.log("Login successful:", data);
 localStorage.setItem("user_id", data.user_id);
 localStorage.setItem("user_name", data.name);
 localStorage.setItem("user_email", data.email);
+localStorage.setItem("access_token", data.access_token);
+onAuthenticated?.();
 
 // Navigate to Explore page
 onNavigate("explore");

@@ -1,4 +1,5 @@
 import math
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
@@ -64,6 +65,7 @@ EMERGENCY_CONTACTS = [
 
 INTEREST_ALIASES = {
     "beach": ["beach", "nightlife", "water"],
+    "beaches": ["beach", "coast", "water"],
     "cultural": ["cultural", "heritage", "history"],
     "heritage": ["heritage", "cultural", "history"],
     "food": ["food", "cuisine"],
@@ -78,6 +80,20 @@ INTEREST_ALIASES = {
     "snow": ["snow", "ski", "winter"],
     "desert": ["desert", "dune"],
     "nightlife": ["nightlife", "beach"],
+    "hill stations": ["hill", "mountain", "nature"],
+    "historical": ["historical", "heritage", "history"],
+    "religious": ["religious", "pilgrim", "spiritual", "temple"],
+    "waterfalls": ["waterfall", "falls", "nature"],
+    "lakes": ["lake", "water", "nature"],
+    "forests": ["forest", "nature", "wildlife"],
+    "museums": ["museum", "history", "cultural"],
+    "cities": ["city", "urban", "shopping", "food"],
+    "villages / rural": ["village", "rural", "culture", "nature"],
+    "islands": ["island", "beach", "coast"],
+    "romantic": ["romantic", "couple", "honeymoon"],
+    "offbeat": ["offbeat", "hidden", "quiet", "remote"],
+    "relaxation": ["relax", "wellness", "beach", "nature"],
+    "shopping": ["shopping", "market", "bazaar"],
 }
 
 GROUP_KEYS = {
@@ -149,6 +165,9 @@ def parse_trip_window(payload):
 
     if start and end:
         days = max(1, (end - start).days + 1)
+    elif end:
+        days = max(1, int(duration or 5))
+        start = end - timedelta(days=days - 1)
     elif duration:
         days = max(1, int(duration))
         if start:
@@ -294,6 +313,11 @@ def score_destination(destination, context):
     elif target_kind == "state":
         score += 24
         reasons.append(f"In {destination.get('state')}")
+
+    preferred = {str(name).strip().lower() for name in context.get("preferred_destinations", [])}
+    if (destination.get("destination_name") or "").strip().lower() in preferred:
+        score += 45
+        reasons.append("Saved in your wishlist")
 
     i_score, matched = interest_score(destination, context["interests"])
     score += i_score
@@ -558,6 +582,11 @@ def summarize_destination(item, days):
         "name": dest.get("destination_name"),
         "state": dest.get("state"),
         "region": dest.get("region"),
+        "coordinates": dest.get("coordinates") or {},
+        "best_seasons": dest.get("best_seasons") or [],
+        "avoid_seasons": dest.get("avoid_seasons") or [],
+        "safety_notes": dest.get("safety_notes") or "",
+        "special_considerations": dest.get("special_considerations") or "",
         "nights": max(1, days - 1) if days > 1 else 1,
         "days": days,
         "distance_km": item.get("distance_km"),
@@ -732,6 +761,7 @@ def generate_travel_plan(payload: dict[str, Any], destinations: list[dict]):
         "pace": pace,
         "group_type": group_type,
         "crowd_preference": crowd_preference,
+        "preferred_destinations": payload.get("preferred_destinations") or [],
         "history": history,
         "strict_target": False,
     }
@@ -867,4 +897,151 @@ def generate_travel_plan(payload: dict[str, Any], destinations: list[dict]):
         "plan": primary,
         "alternatives": alternatives,
         "emergency_contacts": EMERGENCY_CONTACTS,
+    }
+
+
+def profile_budget_amount(value):
+    if not value:
+        return 50000.0
+    numbers = [float(item.replace(",", "")) for item in re.findall(r"\d[\d,]*", str(value))]
+    if not numbers:
+        return 50000.0
+    lowered = str(value).lower()
+    if "below" in lowered:
+        return numbers[0] * 0.8
+    if "above" in lowered or "more than" in lowered:
+        return numbers[0] * 1.25
+    if len(numbers) >= 2:
+        return sum(numbers[:2]) / 2
+    return numbers[0]
+
+
+def profile_duration_days(value):
+    if not value:
+        return 5
+    numbers = [int(item) for item in re.findall(r"\d+", str(value))]
+    if not numbers:
+        return 5
+    return round(sum(numbers[:2]) / min(2, len(numbers)))
+
+
+def recommend_destinations_for_profile(profile, payload, destinations, previous_trips=None):
+    payload = payload or {}
+    interests = list(dict.fromkeys(
+        (profile.get("destinations") or [])
+        + (profile.get("travelStyle") or [])
+        + (profile.get("activities") or [])
+        + (profile.get("travelTypes") or [])
+    ))
+    requested_interests = payload.get("interests") or []
+    if requested_interests:
+        interests = list(dict.fromkeys(requested_interests + interests))
+
+    season = payload.get("season") or season_for_month(datetime.now().month)
+    season_month = {"Winter": 1, "Summer": 4, "Monsoon": 7, "Post-Monsoon": 10}.get(season, datetime.now().month)
+    duration = int(payload.get("duration_days") or profile_duration_days(profile.get("duration")))
+    duration = max(1, min(duration, 30))
+    travelers = max(1, int(payload.get("travelers") or (1 if "Solo" in (profile.get("travelTypes") or []) else 4 if "Family" in (profile.get("travelTypes") or []) else 2)))
+    per_person_budget = float(payload.get("budget") or profile_budget_amount(profile.get("budget")))
+    max_budget = per_person_budget * travelers
+    location = (payload.get("starting_location") or profile.get("city") or "Delhi").strip()
+    travel_style = " ".join(profile.get("travelStyle") or []).lower()
+    accommodation_budget = (profile.get("accommodationBudget") or "").lower()
+    if "luxury" in travel_style or "luxury" in accommodation_budget:
+        stay_style = "Luxury"
+    elif "budget" in travel_style or "budget" in accommodation_budget:
+        stay_style = "Budget"
+    else:
+        stay_style = "Mid-range"
+    transport_options = [item.lower() for item in (profile.get("transportation") or [])]
+    travel_mode = next((mode for key, mode in [("flight", "Flight"), ("train", "Train"), ("bus", "Bus"), ("car", "Self-drive")] if any(key in item for item in transport_options)), "Mixed")
+    group_types = profile.get("travelTypes") or []
+    group_value = next((item.lower() for item in group_types if item.lower() in ("solo", "family", "friends", "couples", "couple")), "friends")
+    group_type = "Couple" if "couple" in group_value else group_value.title()
+    history = history_signals(previous_trips or [])
+    start_coords = lookup_city(location)
+    start = datetime.now().replace(month=season_month, day=15)
+    seasons = [season]
+    context = {
+        "starting_location": location,
+        "destination": "Anywhere in India",
+        "start_coords": start_coords,
+        "days": duration,
+        "seasons": seasons,
+        "stay_style": stay_style,
+        "travel_mode": travel_mode,
+        "travelers": travelers,
+        "max_budget": max_budget,
+        "interests": interests,
+        "pace": "Balanced",
+        "group_type": group_type,
+        "crowd_preference": "Mix",
+        "history": history,
+        "strict_target": False,
+    }
+
+    ranked = []
+    for destination in unique_destinations(destinations):
+        scored = score_destination(destination, context)
+        if not scored:
+            continue
+        ideal_days = int(destination.get("ideal_days") or destination.get("minimum_days") or 3)
+        duration_fit = abs(ideal_days - duration)
+        score = scored["score"] + (16 if duration_fit <= 2 else -min(18, duration_fit * 3))
+        if duration_fit <= 2:
+            scored["reasons"].append(f"Its {ideal_days}-day ideal stay fits your {duration}-day trip")
+        else:
+            scored["reasons"].append(f"You can focus on its highlights in {duration} days")
+        total = (sum(scored["daily_costs"].values()) * duration * travelers)
+        if start_coords and scored["distance_km"] is not None:
+            total += transport_leg_cost(scored["distance_km"], travel_mode, travelers)
+            if scored["distance_km"] <= 700:
+                scored["reasons"].append(f"A convenient distance from {location}")
+            elif duration <= 4 and scored["distance_km"] > 1400:
+                scored["reasons"].append(f"A long journey from {location} for a short break")
+        per_person_estimate = total / travelers
+        if per_person_estimate <= per_person_budget:
+            score += 20
+            scored["reasons"].append("Estimated cost fits your per-person budget")
+        else:
+            score -= min(30, 10 + (per_person_estimate - per_person_budget) / max(per_person_budget, 1) * 20)
+            scored["reasons"].append("Estimated cost may stretch your per-person budget")
+        if not scored["reasons"]:
+            scored["reasons"].append("A strong overall match for your trip preferences")
+        scored["score"] = score
+        scored["estimated_total"] = round(total)
+        scored["estimated_per_person"] = round(per_person_estimate)
+        scored["duration_fit_days"] = ideal_days
+        ranked.append(scored)
+
+    ranked.sort(key=lambda item: item["score"], reverse=True)
+    top_scores = [item["score"] for item in ranked]
+    highest = max(top_scores, default=1)
+    lowest = min(top_scores, default=0)
+    recommendations = []
+    for item in ranked[:max(1, min(int(payload.get("limit") or 12), 24))]:
+        dest = item["destination"]
+        normalized = 72 if highest == lowest else round(55 + (item["score"] - lowest) / (highest - lowest) * 43)
+        reasons = list(dict.fromkeys(item["reasons"]))[:4]
+        recommendations.append({
+            "destination": dest,
+            "score": normalized,
+            "reasons": reasons,
+            "why": ". ".join(reasons[:3]) + ".",
+            "estimated_total": item["estimated_total"],
+            "estimated_per_person": item["estimated_per_person"],
+            "budget_fit": item["estimated_per_person"] <= per_person_budget,
+            "ideal_days": item["duration_fit_days"],
+            "distance_km": item["distance_km"],
+        })
+    return {
+        "recommendations": recommendations,
+        "preferences_used": {
+            "interests": interests,
+            "budget_per_person": round(per_person_budget),
+            "duration_days": duration,
+            "season": season,
+            "starting_location": location,
+            "previous_trips_considered": len(previous_trips or []),
+        },
     }

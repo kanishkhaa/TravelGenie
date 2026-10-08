@@ -13,7 +13,7 @@ import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 
 import { useState } from "react";
 
-function Register({ onNavigate }) {
+function Register({ onNavigate, onAuthenticated }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -25,6 +25,8 @@ function Register({ onNavigate }) {
   });
 
   const [passwordError, setPasswordError] = useState("");
+  const [serverError, setServerError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // Handle input changes
   const handleChange = (event) => {
@@ -36,6 +38,7 @@ function Register({ onNavigate }) {
     };
 
     setFormData(updatedFormData);
+    setServerError("");
 
     // Check password match while typing
     if (name === "password" || name === "confirmPassword") {
@@ -68,7 +71,13 @@ function Register({ onNavigate }) {
     return;
   }
 
+  if (formData.password.length < 8) {
+    setPasswordError("Use at least 8 characters for your password.");
+    return;
+  }
+
   try {
+    setSubmitting(true);
     const response = await fetch(
       "http://127.0.0.1:8000/register",
       {
@@ -84,7 +93,7 @@ function Register({ onNavigate }) {
 
     // Backend error
     if (!response.ok) {
-      alert(data.detail || "Registration failed.");
+      setServerError(data.detail || "Registration failed. Please try again.");
       return;
     }
 
@@ -95,10 +104,12 @@ function Register({ onNavigate }) {
     // Store newly registered user's ID
     // ------------------------------------
     localStorage.setItem("user_id", data.user_id);
+    localStorage.setItem("access_token", data.access_token);
 
     // Optional: store basic user information
     localStorage.setItem("user_name", formData.name);
     localStorage.setItem("user_email", formData.email);
+    onAuthenticated?.();
 
     // ------------------------------------
     // Go directly to Profile Form
@@ -108,9 +119,9 @@ function Register({ onNavigate }) {
   } catch (error) {
     console.error("Registration error:", error);
 
-    alert(
-      "Unable to connect to the server. Please make sure the backend is running."
-    );
+    setServerError("We couldn’t reach the server. Please try again in a moment.");
+  } finally {
+    setSubmitting(false);
   }
 };
 
@@ -270,6 +281,7 @@ function Register({ onNavigate }) {
 
           {/* Registration Form */}
           <Box component="form" onSubmit={handleSubmit}>
+            {serverError && <Typography role="alert" sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: "#fef2f2", color: "#b91c1c", fontSize: ".9rem" }}>{serverError}</Typography>}
             {/* Full Name */}
             <Typography
               sx={{
@@ -420,6 +432,7 @@ function Register({ onNavigate }) {
               fullWidth
               type="submit"
               variant="contained"
+              disabled={submitting}
               sx={{
                 py: 1.55,
                 borderRadius: "12px",
@@ -437,7 +450,7 @@ function Register({ onNavigate }) {
                 },
               }}
             >
-              Create Account
+              {submitting ? "Creating your account…" : "Create Account"}
             </Button>
           </Box>
 
