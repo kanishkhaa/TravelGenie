@@ -40,7 +40,7 @@ function range(value) {
 function Section({ title, icon, eyebrow, children, action }) {
   return <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2, sm: 2.7, md: 3 } }}>
     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1.5, mb: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}><Box sx={{ width: 40, height: 40, borderRadius: 2.5, display: "grid", placeItems: "center", bgcolor: "#edf5ef", color: "#246a5b" }}>{icon}</Box><Box>{eyebrow && <Typography variant="overline" color="text.secondary" fontWeight={750} letterSpacing=".08em">{eyebrow}</Typography>}<Typography variant="h6" fontWeight={850} letterSpacing="-.025em" lineHeight={1.2}>{title}</Typography></Box></Box>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}><Box sx={{ width: 40, height: 40, borderRadius: 2.5, display: "grid", placeItems: "center", bgcolor: "#edf5ef", color: "#246a5b" }}>{icon}</Box><Box>{eyebrow && <Typography variant="overline" color="text.secondary" fontWeight={750} letterSpacing=".08em">{eyebrow}</Typography>}<Typography variant="h6" fontWeight={850} letterSpacing="-.025em" sx={{ lineHeight: 1.2 }}>{title}</Typography></Box></Box>
       {action}
     </Box>
     {children}

@@ -173,7 +173,7 @@ function Navbar({ currentPage, onNavigate, isLoggedIn, onLogout }) {
  
         </Toolbar>
       </Container>
-      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)} sx={{ display: { lg: "none" } }} PaperProps={{ sx: { mt: 1, minWidth: 220, borderRadius: 3, border: "1px solid #e6eae7", boxShadow: "0 16px 45px rgba(20,35,55,.12)" } }}>
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)} sx={{ display: { lg: "none" } }} slotProps={{ paper: { sx: { mt: 1, minWidth: 220, borderRadius: 3, border: "1px solid #e6eae7", boxShadow: "0 16px 45px rgba(20,35,55,.12)" } } }}>
         {navItems.map((item) => <MenuItem key={item.page} selected={currentPage === item.page} onClick={() => { onNavigate(item.page); setMenuAnchor(null); }} sx={{ py: 1.25, fontWeight: currentPage === item.page ? 800 : 600 }}>{item.label}</MenuItem>)}
       </Menu>
     </AppBar>

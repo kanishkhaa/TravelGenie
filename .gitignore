@@ -9,6 +9,7 @@
 *.pfx
 secrets.json
 credentials.json
+backend/.token_secret
 
 # Python virtual environments
 **/venv/

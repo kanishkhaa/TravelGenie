@@ -1,3 +1,4 @@
+import { throwForUnauthorized } from "./authSession";
 const API = "http://127.0.0.1:8000";
 
 async function request(path, options = {}) {
@@ -8,7 +9,7 @@ async function request(path, options = {}) {
     headers: { Authorization: `Bearer ${token}`, ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || "Could not update your wishlist.");
+  throwForUnauthorized(response, data, "Could not update your wishlist.");
   return data;
 }
 

@@ -1,3 +1,4 @@
+import { throwForUnauthorized } from "./authSession";
 const API_BASE_URL = "http://127.0.0.1:8000";
 const LEGACY_PLANS_KEY = "travelgenie_saved_plans";
 const LEGACY_IMPORT_KEY = "travelgenie_saved_plans_imported_v1";
@@ -15,7 +16,7 @@ async function tripRequest(path, options = {}) {
     headers: { ...authHeaders(), ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || "Trip request failed. Please try again.");
+  throwForUnauthorized(response, data, "Trip request failed. Please try again.");
   return data;
 }
 

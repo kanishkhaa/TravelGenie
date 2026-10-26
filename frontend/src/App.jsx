@@ -33,6 +33,16 @@ function App() {
     setCurrentPage(page);
   };
 
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      setIsLoggedIn(false);
+      setSelectedDestination(null);
+      setCurrentPage("login");
+    };
+    window.addEventListener("travelgenie:session-expired", handleExpiredSession);
+    return () => window.removeEventListener("travelgenie:session-expired", handleExpiredSession);
+  }, []);
+
   const handleViewDetails = (destination) => {
     setSelectedDestination(destination);
   };
@@ -146,7 +156,7 @@ function App() {
 
       {renderPage()}
       <AssistantWidget onLoginRequired={() => handleNavigation("login")} />
-      <EmergencySOS />
+      <EmergencySOS onConfigureContact={() => handleNavigation("profileform")} />
     </>
     </FavoritesProvider>
   );

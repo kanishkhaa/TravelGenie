@@ -15,6 +15,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Literal
 from urllib import request as urlrequest, error as urlerror
 import re
+from groq import Groq, APIConnectionError, APIStatusError
 
 from planner import generate_travel_plan, recommend_destinations_for_profile
 
@@ -40,8 +41,32 @@ def load_backend_env():
         pass
 
 load_backend_env()
-TOKEN_SECRET = os.environ.get("TRAVELGENIE_TOKEN_SECRET") or secrets.token_urlsafe(48)
-TOKEN_SECRET = TOKEN_SECRET.encode()
+
+def load_token_secret() -> bytes:
+    configured_secret = os.environ.get("TRAVELGENIE_TOKEN_SECRET", "").strip()
+    if configured_secret:
+        return configured_secret.encode()
+
+    secret_path = os.path.join(os.path.dirname(__file__), ".token_secret")
+    try:
+        with open(secret_path, "r", encoding="utf-8") as secret_file:
+            saved_secret = secret_file.read().strip()
+        if saved_secret:
+            return saved_secret.encode()
+    except FileNotFoundError:
+        pass
+
+    generated_secret = secrets.token_urlsafe(48)
+    try:
+        with open(secret_path, "x", encoding="utf-8") as secret_file:
+            secret_file.write(generated_secret)
+    except FileExistsError:
+        with open(secret_path, "r", encoding="utf-8") as secret_file:
+            generated_secret = secret_file.read().strip()
+    return generated_secret.encode()
+
+
+TOKEN_SECRET = load_token_secret()
 
 def issue_token(user_id: str) -> str:
     payload = base64.urlsafe_b64encode(json.dumps({"sub": user_id}, separators=(",", ":")).encode()).decode().rstrip("=")
@@ -76,7 +101,6 @@ db = client["travelgenie"]
 users_collection = db["users"]
 favorites_collection = db["favorites"]
 trips_collection = db["trips"]
-assistant_conversations_collection = db["assistant_conversations"]
 trip_invites_collection = db["trip_invites"]
 
 # --------------------------------------------------
@@ -171,15 +195,8 @@ class RecommendationRequest(BaseModel):
     limit: int = Field(default=12, ge=1, le=24)
 
 
-class AssistantMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=4000)
-
-
 class AssistantChatRequest(BaseModel):
-    messages: list[AssistantMessage] = Field(min_length=1, max_length=24)
-    trip_id: str | None = None
-    conversation_id: str = Field(min_length=1, max_length=80)
+    message: str = Field(min_length=1, max_length=2000)
 
 
 class PlannerDraftRequest(BaseModel):
@@ -448,37 +465,6 @@ def save_planner_draft(draft: PlannerDraftRequest, user=Depends(current_user)):
     return {"message": "Planner draft saved"}
 
 
-@app.get("/assistant/conversations")
-def list_assistant_conversations(user=Depends(current_user)):
-    user_id = str(user["_id"])
-    rows = list(assistant_conversations_collection.find({"user_id": user_id}).sort("updated_at", -1).limit(100))
-    conversations = []
-    for row in rows:
-        conversation_id = row.get("conversation_id", "legacy")
-        messages = row.get("messages", [])
-        first_question = next((item.get("content", "") for item in messages if item.get("role") == "user"), "Travel chat")
-        conversations.append({
-            "id": conversation_id,
-            "title": row.get("title") or first_question[:72] or "Travel chat",
-            "updated_at": row.get("updated_at", ""),
-            "message_count": len(messages),
-        })
-    return {"conversations": conversations}
-
-
-@app.get("/assistant/history/{conversation_id}")
-def get_assistant_history(conversation_id: str, user=Depends(current_user)):
-    conversation = assistant_conversations_collection.find_one(
-        {"user_id": str(user["_id"]), "conversation_id": conversation_id}, {"messages": 1}
-    )
-    # Read the pre-conversations single-chat record created by earlier versions.
-    if not conversation and conversation_id == "legacy":
-        conversation = assistant_conversations_collection.find_one(
-            {"user_id": str(user["_id"]), "conversation_id": {"$exists": False}}, {"messages": 1}
-        )
-    return {"messages": (conversation or {}).get("messages", [])}
-
-
 @app.post("/trips")
 def create_trip(trip: TripRequest, user=Depends(current_user)):
     if trip.status != "planned":
@@ -657,7 +643,15 @@ def remove_favorite(destination_id: str, user=Depends(current_user)):
 
 
 def assistant_destination_context(query: str, limit: int = 8):
-    terms = {word for word in re.findall(r"[a-zA-Z]{3,}", query.lower())}
+    stop_words = {
+        "about", "best", "can", "could", "day", "days", "for", "from", "have", "how", "i", "in",
+        "is", "it", "me", "my", "of", "on", "please", "recommend", "should", "suggest", "the", "to",
+        "travel", "trip", "want", "what", "when", "where", "which", "with", "you", "your",
+    }
+    terms = {
+        word for word in re.findall(r"[a-zA-Z]{3,}", query.lower())
+        if word not in stop_words
+    }
     ranked = []
     for destination in destinations:
         searchable = " ".join(str(destination.get(key, "")) for key in (
@@ -694,11 +688,10 @@ def assistant_destination_context(query: str, limit: int = 8):
     return [{key: item[key] for key in fields if key in item} for _, item in ranked[:limit]]
 
 
-@app.post("/assistant/chat")
-def travel_assistant(request: AssistantChatRequest, user=Depends(current_user)):
+def retired_travel_assistant(request, user=Depends(current_user)):
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key or api_key == "your_groq_api_key_here":
-        raise HTTPException(status_code=503, detail="Groq API key is missing. Set GROQ_API_KEY in backend/.env and restart the backend.")
+        raise HTTPException(status_code=503, detail="Groq API key is missing. Add GROQ_API_KEY to backend/.env and restart the backend.")
     from bson import ObjectId
     trip = None
     if request.trip_id:
@@ -729,9 +722,9 @@ def travel_assistant(request: AssistantChatRequest, user=Depends(current_user)):
         f"\nTOURISM DATABASE: {json.dumps(context, ensure_ascii=False)}"
         f"\nCURRENT TRIP ITINERARY: {json.dumps(itinerary, ensure_ascii=False)}"
     )
-    configured_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
-    fallback_model = os.environ.get("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
-    secondary_model = os.environ.get("GROQ_SECONDARY_MODEL", "openai/gpt-oss-120b")
+    configured_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+    fallback_model = os.environ.get("GROQ_FALLBACK_MODEL", "openai/gpt-oss-120b")
+    secondary_model = os.environ.get("GROQ_SECONDARY_MODEL", "qwen/qwen3.8-27b")
     body = {
         "model": configured_model,
         "messages": [{"role": "system", "content": system_prompt}] + [message.model_dump() for message in request.messages],
@@ -753,7 +746,7 @@ def travel_assistant(request: AssistantChatRequest, user=Depends(current_user)):
             method="POST",
         )
         try:
-            with urlrequest.urlopen(req, timeout=35) as response:
+            with urlrequest.urlopen(req, timeout=20) as response:
                 result = json.loads(response.read().decode("utf-8"))
             answer = json.loads(result["choices"][0]["message"]["content"])
             model_used = model_name
@@ -765,27 +758,25 @@ def travel_assistant(request: AssistantChatRequest, user=Depends(current_user)):
                 last_groq_message = (error_data.get("error") or {}).get("message", "")
             except (ValueError, AttributeError):
                 last_groq_message = ""
-            if error.code == 401:
-                raise HTTPException(status_code=502, detail="Groq rejected this API key. Check that it is active and belongs to the selected Groq project.")
-            if error.code == 429:
-                raise HTTPException(status_code=503, detail="Groq is rate limiting this project. Please wait briefly and try again.")
             if error.code in (400, 403, 404):
                 continue
-            raise HTTPException(status_code=502, detail=f"Groq request failed with HTTP {error.code}. {last_groq_message}".strip())
-        except (urlerror.URLError, TimeoutError) as error:
-            raise HTTPException(status_code=502, detail=f"Could not reach Groq: {getattr(error, 'reason', error)}. Check backend internet access and DNS.")
+            break
+        except (urlerror.URLError, TimeoutError):
+            break
         except (KeyError, ValueError, IndexError):
-            raise HTTPException(status_code=502, detail="Groq responded, but its reply could not be read. Please retry.")
+            continue
     if answer is None:
-        if last_status == 403:
-            message = f"Groq denied all configured models ({', '.join(models_to_try)}). Enable at least one of these models in both organization and project limits."
-            if last_groq_message:
-                message += f" Groq: {last_groq_message}"
-            raise HTTPException(status_code=502, detail=message)
-        message = f"Groq could not use any configured model ({', '.join(models_to_try)})."
+        if last_status == 401:
+            detail = "Groq rejected the API key. Replace GROQ_API_KEY in backend/.env with an active key and restart the backend."
+        elif last_status == 403:
+            detail = "Groq denied this API key or model. Confirm the key belongs to an active Groq project with model access."
+        elif last_status == 429:
+            detail = "Groq is rate limiting this project. Please wait briefly and try again."
+        else:
+            detail = "Groq did not return a usable response. Check the backend internet connection and GROQ_API_KEY."
         if last_groq_message:
-            message += f" Groq: {last_groq_message}"
-        raise HTTPException(status_code=502, detail=message)
+            detail += f" Groq: {last_groq_message}"
+        raise HTTPException(status_code=503, detail=detail)
 
     updated = answer.get("updated_itinerary")
     if updated is not None:
@@ -834,7 +825,63 @@ def travel_assistant(request: AssistantChatRequest, user=Depends(current_user)):
     return {"reply": reply, "sources": sources, "updated_itinerary": updated, "trip_id": request.trip_id, "model_used": model_used, "conversation_id": request.conversation_id}
 
 
-@app.post("/assistant/apply-itinerary")
+def chat_context(message: str, limit: int = 6):
+    terms = set(re.findall(r"[a-zA-Z]{3,}", message.lower()))
+    matches = []
+    for destination in destinations:
+        searchable = " ".join(str(destination.get(key, "")) for key in (
+            "destination_name", "state", "region", "categories", "trip_types",
+            "primary_attractions", "activities_available", "best_seasons", "local_cuisine_must_try",
+        )).lower()
+        score = sum(term in searchable for term in terms)
+        if score:
+            matches.append((score, destination))
+    matches.sort(key=lambda row: row[0], reverse=True)
+    fields = ("destination_name", "state", "categories", "trip_types", "primary_attractions", "activities_available", "best_seasons", "ideal_days", "budget_category", "safety_notes")
+    return [{key: item.get(key) for key in fields if item.get(key) not in (None, "", [])} for _, item in matches[:limit]]
+
+
+@app.post("/assistant/chat")
+def travel_chat(request: AssistantChatRequest, user=Depends(current_user)):
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key or api_key == "your_groq_api_key_here":
+        raise HTTPException(status_code=503, detail="Chat is not configured yet. Add GROQ_API_KEY to backend/.env and restart the backend.")
+
+    context = chat_context(request.message)
+    system_prompt = (
+        "You are TravelGenie, a concise and friendly India travel assistant. "
+        "Use the supplied destination guide as your factual source. Do not invent availability, "
+        "prices, opening times, routes, or safety claims. If the guide does not contain an answer, say so. "
+        "Offer practical next steps and use short paragraphs or bullets when useful.\n\n"
+        f"DESTINATION GUIDE:\n{json.dumps(context, ensure_ascii=False)}"
+    )
+    body = {
+        "model": os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"),
+        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": request.message}],
+        "temperature": 0.35,
+        "max_completion_tokens": 700,
+    }
+    try:
+        client = Groq(api_key=api_key, timeout=25.0)
+        result = client.chat.completions.create(**body)
+        reply = str(result.choices[0].message.content or "").strip()
+        if not reply:
+            raise ValueError("Empty response")
+    except APIStatusError as error:
+        if error.status_code in (401, 403):
+            detail = "The chat provider denied its API key or project access. Add an active Groq key with API access to backend/.env and restart the backend."
+        elif error.status_code == 429:
+            detail = "Travel chat is busy right now. Please try again shortly."
+        else:
+            detail = "Travel chat is temporarily unavailable. Please try again shortly."
+        raise HTTPException(status_code=503, detail=detail)
+    except (APIConnectionError, TimeoutError, KeyError, ValueError, IndexError):
+        raise HTTPException(status_code=503, detail="Travel chat is temporarily unavailable. Please try again shortly.")
+
+    sources = [item["destination_name"] for item in context if item.get("destination_name")]
+    return {"reply": reply, "sources": sources}
+
+
 def apply_assistant_itinerary(request: ApplyItineraryRequest, user=Depends(current_user)):
     from bson import ObjectId
     try:

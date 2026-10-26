@@ -22,7 +22,7 @@ function RecommendationCard({ item, index, onOpen }) {
     <DestinationCover destinationName={destination.destination_name} height={155}>
       <Box sx={{ position: "absolute", width: 180, height: 180, borderRadius: "50%", border: "1px solid rgba(255,255,255,.55)", right: -35, bottom: -95, boxShadow: "0 0 0 28px rgba(255,255,255,.15),0 0 0 60px rgba(255,255,255,.11)" }} />
       <Chip label={`#${index + 1} MATCH`} size="small" sx={{ bgcolor: "rgba(255,255,255,.76)", color: "#28584f", fontWeight: 800, letterSpacing: ".06em" }} />
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, position: "relative" }}><Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,.78)", px: 1.2, py: .7, textAlign: "center" }}><Typography variant="h6" fontWeight={850} lineHeight={1}>{item.score}%</Typography><Typography variant="caption" color="text.secondary">FIT</Typography></Box><FavoriteButton destination={destination} /></Box>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, position: "relative" }}><Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,.78)", px: 1.2, py: .7, textAlign: "center" }}><Typography variant="h6" fontWeight={850} sx={{ lineHeight: 1 }}>{item.score}%</Typography><Typography variant="caption" color="text.secondary">FIT</Typography></Box><FavoriteButton destination={destination} /></Box>
     </DestinationCover>
     <CardContent sx={{ p: 2.5 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: .4, color: "text.secondary", mb: .5 }}><LocationOnOutlinedIcon sx={{ fontSize: 17 }} /><Typography variant="body2">{destination.district || destination.region}, {destination.state}</Typography></Box>
@@ -104,8 +104,8 @@ function DestinationSearch({ onViewDetails, onNavigate }) {
       {mode === "for-you" ? <Paper elevation={0} sx={{ border: "1px solid #e5eae6", borderRadius: 4, p: { xs: 2, md: 2.5 }, mb: 3 }}>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "1.1fr .9fr 1fr 1.25fr auto" }, gap: 1.5, alignItems: "center" }}>
           <FormControl size="small"><InputLabel>Season</InputLabel><Select label="Season" value={filters.season} onChange={(e) => updateFilter("season", e.target.value)}>{seasons.map((item) => <MenuItem key={item} value={item}>{item === "Auto" ? `Auto${preferenceSummary?.season ? ` · ${preferenceSummary.season}` : ""}` : item}</MenuItem>)}</Select></FormControl>
-          <TextField size="small" type="number" label="Trip length" value={filters.duration_days} placeholder={preferenceSummary?.duration_days || "Profile"} onChange={(e) => updateFilter("duration_days", e.target.value)} inputProps={{ min: 1, max: 30 }} />
-          <TextField size="small" type="number" label="Budget / person ₹" value={filters.budget} placeholder={preferenceSummary?.budget_per_person || "Profile"} onChange={(e) => updateFilter("budget", e.target.value)} inputProps={{ min: 1000 }} />
+          <TextField size="small" type="number" label="Trip length" value={filters.duration_days} placeholder={preferenceSummary?.duration_days || "Profile"} onChange={(e) => updateFilter("duration_days", e.target.value)} slotProps={{ htmlInput: { min: 1, max: 30 } }} />
+          <TextField size="small" type="number" label="Budget / person ₹" value={filters.budget} placeholder={preferenceSummary?.budget_per_person || "Profile"} onChange={(e) => updateFilter("budget", e.target.value)} slotProps={{ htmlInput: { min: 1000 } }} />
           <TextField size="small" label="Starting city" value={filters.starting_location} placeholder={preferenceSummary?.starting_location || "Profile city"} onChange={(e) => updateFilter("starting_location", e.target.value)} />
           <Button variant="contained" onClick={() => loadRecommendations(filters)} disabled={loading} sx={{ minHeight: 40, textTransform: "none", fontWeight: 750, gridColumn: { xs: "1 / -1", md: "auto" } }}>Refresh matches</Button>
         </Box>

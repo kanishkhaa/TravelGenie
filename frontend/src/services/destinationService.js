@@ -1,3 +1,4 @@
+import { throwForUnauthorized } from "./authSession";
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 export const getPersonalizedRecommendations = async (filters = {}) => {
@@ -9,7 +10,7 @@ export const getPersonalizedRecommendations = async (filters = {}) => {
     body: JSON.stringify(filters),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || "Could not load personalized recommendations.");
+  throwForUnauthorized(response, data, "Could not load personalized recommendations.");
   return data;
 };
 

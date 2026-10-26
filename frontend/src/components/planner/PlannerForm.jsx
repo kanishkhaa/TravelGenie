@@ -120,7 +120,7 @@ function PlannerForm({
               InputLabelProps={{ shrink: true }}
               placeholder="DD/MM/YYYY"
               helperText="DD/MM/YYYY"
-              inputProps={{ inputMode: "numeric", maxLength: 10 }}
+              slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 10 } }}
               value={form.start_date}
               onChange={(e) => update("start_date", e.target.value)}
               sx={{ bgcolor: "white", borderRadius: 2 }}
@@ -131,7 +131,7 @@ function PlannerForm({
               InputLabelProps={{ shrink: true }}
               placeholder="DD/MM/YYYY"
               helperText="DD/MM/YYYY"
-              inputProps={{ inputMode: "numeric", maxLength: 10 }}
+              slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 10 } }}
               value={form.end_date}
               onChange={(e) => update("end_date", e.target.value)}
               sx={{ bgcolor: "white", borderRadius: 2 }}
@@ -144,7 +144,7 @@ function PlannerForm({
           label="Duration (days) — if no dates"
           value={form.duration_days}
           onChange={(e) => update("duration_days", e.target.value)}
-          inputProps={{ min: 1, max: 30 }}
+          slotProps={{ htmlInput: { min: 1, max: 30 } }}
         />
 
         <TextField
@@ -153,7 +153,7 @@ function PlannerForm({
           required
           value={form.max_budget}
           onChange={(e) => update("max_budget", e.target.value)}
-          inputProps={{ min: 1000 }}
+          slotProps={{ htmlInput: { min: 1000 } }}
         />
 
         <TextField
@@ -162,7 +162,7 @@ function PlannerForm({
           required
           value={form.travelers}
           onChange={(e) => update("travelers", e.target.value)}
-          inputProps={{ min: 1, max: 12 }}
+          slotProps={{ htmlInput: { min: 1, max: 12 } }}
         />
 
         <Box sx={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 1, mt: 1 }}><Box sx={{ width: 25, height: 25, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: "#176e61", color: "white", fontSize: 12, fontWeight: 800 }}>2</Box><Typography fontWeight={800}>How you like to travel</Typography><Box sx={{ height: 1, flex: 1, bgcolor: "#e5ece7", ml: 1 }} /></Box>
