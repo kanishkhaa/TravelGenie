@@ -40,17 +40,29 @@ export default function Profile({ onNavigate }) {
   const [error, setError] = useState("");
   useEffect(() => {
     const load = async () => {
-      try {
-        const token = localStorage.getItem("access_token");
-        const response = await fetch("http://127.0.0.1:8000/profile/me", { headers: { Authorization: `Bearer ${token}` } });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.detail || "We couldn’t load your profile.");
-        setProfile(data.profile);
-      } catch (reason) { setError(reason.message || "Unable to connect to your profile."); }
-      finally { setLoading(false); }
+    
+try {
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/profile/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "We couldn’t load your profile.");
+    setProfile(data.profile);
+} catch (reason) {
+    setError(reason.message || "Unable to connect to your profile.");
+} finally {
+    setLoading(false);
+}
     };
     load();
   }, []);
+
 
   const completion = useMemo(() => {
     if (!profile) return 0;

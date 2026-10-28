@@ -1,5 +1,5 @@
 import { throwForUnauthorized } from "./authSession";
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const LEGACY_PLANS_KEY = "travelgenie_saved_plans";
 const LEGACY_IMPORT_KEY = "travelgenie_saved_plans_imported_v1";
 let legacyImportPromise = null;

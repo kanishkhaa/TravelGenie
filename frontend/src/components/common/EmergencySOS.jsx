@@ -6,7 +6,7 @@ import PhoneInTalkRoundedIcon from "@mui/icons-material/PhoneInTalkRounded";
 import SmsRoundedIcon from "@mui/icons-material/SmsRounded";
 import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
 
-const API = "http://127.0.0.1:8000";
+const API = import.meta.env.VITE_API_URL;
 
 export default function EmergencySOS({ onConfigureContact }) {
   const [open, setOpen] = useState(false);

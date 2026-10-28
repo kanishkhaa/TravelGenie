@@ -236,10 +236,10 @@ useEffect(() => {
       return;
     }
 
-    try {
-
+   
+try {
       const response = await fetch(
-        "http://127.0.0.1:8000/profile/me",
+        `${import.meta.env.VITE_API_URL}/profile/me`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -484,21 +484,21 @@ const handleSubmit = async (event) => {
     return;
   }
 
-  try {
-    const response = await fetch(
-      "http://127.0.0.1:8000/profile",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          ...formData,
-        }),
-      }
-    );
+ try {
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/profile`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        ...formData,
+      }),
+    }
+  );
 
     const data = await response.json();
 

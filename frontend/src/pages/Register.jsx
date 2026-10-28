@@ -76,10 +76,11 @@ function Register({ onNavigate, onAuthenticated }) {
     return;
   }
 
-  try {
+
+try {
     setSubmitting(true);
     const response = await fetch(
-      "http://127.0.0.1:8000/register",
+      `${import.meta.env.VITE_API_URL}/register`,
       {
         method: "POST",
         headers: {
@@ -88,7 +89,6 @@ function Register({ onNavigate, onAuthenticated }) {
         body: JSON.stringify(formData),
       }
     );
-
     const data = await response.json();
 
     // Backend error

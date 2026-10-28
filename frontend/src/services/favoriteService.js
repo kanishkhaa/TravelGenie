@@ -1,6 +1,5 @@
 import { throwForUnauthorized } from "./authSession";
-const API = "http://127.0.0.1:8000";
-
+const API = import.meta.env.VITE_API_URL;
 async function request(path, options = {}) {
   const token = localStorage.getItem("access_token");
   if (!token) throw new Error("Sign in to save destinations to your wishlist.");

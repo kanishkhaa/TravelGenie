@@ -80,76 +80,85 @@ function SmartPlanner() {
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftError, setDraftError] = useState("");
   const draftTimer = useRef(null);
+useEffect(() => {
+  let active = true;
 
-  useEffect(() => {
-    let active = true;
-    const loadPreferences = async () => {
-      const [plannerOptions] = await Promise.allSettled([getPlannerOptions()]);
-      if (!active) return;
-      setOptions(plannerOptions.status === "fulfilled" ? plannerOptions.value : {});
-      let combinedHistory = [];
-      const token = localStorage.getItem("access_token");
-      if (token) {
-        const [profileRequest, tripsRequest, favoritesRequest, draftRequest] = await Promise.allSettled([
-          fetch("http://127.0.0.1:8000/profile/me", { headers: { Authorization: `Bearer ${token}` } }),
-          getSavedPlans(),
-          getFavorites(),
-          getPlannerDraft(),
-        ]);
-        if (!active) return;
-        if (favoritesRequest.status === "fulfilled") {
-          setFavoriteDestinations(favoritesRequest.value);
-          setForm((current) => ({ ...current, preferred_destinations: favoritesRequest.value.map((item) => item.destination_name) }));
-        }
-        if (profileRequest.status === "fulfilled") {
-          const profileResponse = profileRequest.value;
-          const profileData = await profileResponse.json().catch(() => ({}));
-          if (profileResponse.ok && profileData.profile) {
-            const profile = profileData.profile;
-            setProfileContext(profile);
-            const range = (profile.duration || "").match(/\d+/g) || [];
-            const days = range.length ? Math.round(range.slice(0, 2).map(Number).reduce((sum, value) => sum + value, 0) / Math.min(range.length, 2)) : 6;
-            const amounts = (profile.budget || "").match(/\d[\d,]*/g) || [];
-            const amountValues = amounts.map((value) => Number(value.replaceAll(",", "")));
-            let perPersonBudget = amountValues.length > 1 ? (amountValues[0] + amountValues[1]) / 2 : amountValues[0] || 30000;
-            if (/below/i.test(profile.budget || "")) perPersonBudget *= .8;
-            if (/above/i.test(profile.budget || "")) perPersonBudget *= 1.25;
-            const travelers = (profile.travelTypes || []).some((value) => value.toLowerCase() === "solo") ? 1 : (profile.travelTypes || []).some((value) => value.toLowerCase() === "family") ? 4 : (profile.travelTypes || []).some((value) => value.toLowerCase().includes("couple")) ? 2 : 2;
-            const interests = [...new Set([...(profile.travelStyle || []), ...(profile.destinations || []), ...(profile.activities || [])])];
-            setForm((current) => ({
-              ...current,
-              starting_location: profile.city || current.starting_location,
-              duration_days: String(days),
-              max_budget: String(Math.round(perPersonBudget * travelers)),
-              travelers: String(travelers),
-              interests: interests.length ? interests : current.interests,
-              group_type: travelers === 1 ? "Solo" : travelers === 4 ? "Family" : (profile.travelTypes || []).some((value) => value.toLowerCase().includes("couple")) ? "Couple" : "Friends",
-              stay_style: (profile.accommodationBudget || "").toLowerCase().includes("luxury") || (profile.travelStyle || []).some((value) => value.toLowerCase() === "luxury") ? "Luxury" : (profile.accommodationBudget || "").toLowerCase().includes("budget") || (profile.travelStyle || []).some((value) => value.toLowerCase() === "budget") ? "Budget" : current.stay_style,
-              travel_mode: (profile.transportation || []).some((value) => value.toLowerCase().includes("flight")) ? "Flight" : (profile.transportation || []).some((value) => value.toLowerCase().includes("train")) ? "Train" : current.travel_mode,
-            }));
-          }
-        }
-        if (tripsRequest.status === "fulfilled") {
-          const pastTrips = tripsRequest.value.filter((trip) => trip.status === "completed").map((trip) => ({
-            destination_names: (trip.result?.plan?.recommended_destinations || []).map((item) => item.name),
-            destination_ids: (trip.result?.plan?.recommended_destinations || []).map((item) => item.id),
+  const loadPreferences = async () => {
+    let combinedHistory = [];
+
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      const [
+        profileRequest,
+        tripsRequest,
+        favoritesRequest,
+        draftRequest,
+      ] = await Promise.allSettled([
+        fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        getSavedPlans(),
+        getFavorites(),
+        getPlannerDraft(),
+      ]);
+
+      if (tripsRequest.status === "fulfilled") {
+        const pastTrips = tripsRequest.value
+          .filter((trip) => trip.status === "completed")
+          .map((trip) => ({
+            destination_names: (
+              trip.result?.plan?.recommended_destinations || []
+            ).map((item) => item.name),
+            destination_ids: (
+              trip.result?.plan?.recommended_destinations || []
+            ).map((item) => item.id),
             interests: trip.form?.interests || [],
           }));
-          combinedHistory = [...pastTrips, ...combinedHistory].slice(0, 20);
-        }
-        if (draftRequest.status === "fulfilled" && draftRequest.value) {
-          const draft = draftRequest.value;
-          setForm((current) => ({ ...current, ...draft, ...(destinationFromExplore?.name ? { destination: destinationFromExplore.name, preferred_destinations: [...new Set([...(draft.preferred_destinations || []), destinationFromExplore.name])] } : {}), start_date: dateToDisplay(draft.start_date), end_date: dateToDisplay(draft.end_date) }));
-        }
+
+        combinedHistory = [...pastTrips, ...combinedHistory].slice(0, 20);
       }
-      if (active) {
-        setHistory(combinedHistory);
-        setDraftLoaded(true);
+
+      if (
+        draftRequest.status === "fulfilled" &&
+        draftRequest.value
+      ) {
+        const draft = draftRequest.value;
+
+        setForm((current) => ({
+          ...current,
+          ...draft,
+          ...(destinationFromExplore?.name
+            ? {
+                destination: destinationFromExplore.name,
+                preferred_destinations: [
+                  ...new Set([
+                    ...(draft.preferred_destinations || []),
+                    destinationFromExplore.name,
+                  ]),
+                ],
+              }
+            : {}),
+          start_date: dateToDisplay(draft.start_date),
+          end_date: dateToDisplay(draft.end_date),
+        }));
       }
-    };
-    loadPreferences();
-    return () => { active = false; };
-  }, [destinationFromExplore]);
+    }
+
+    if (active) {
+      setHistory(combinedHistory);
+      setDraftLoaded(true);
+    }
+  };
+
+  loadPreferences();
+
+  return () => {
+    active = false;
+  };
+}, [destinationFromExplore]);
 
   useEffect(() => {
     if (!draftLoaded || !localStorage.getItem("access_token")) return undefined;
