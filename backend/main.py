@@ -95,6 +95,11 @@ def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(auth
 # --------------------------------------------------
 
 client = MongoClient(os.environ.get("MONGODB_URI", "mongodb://localhost:27017"), serverSelectionTimeoutMS=5000)
+try:
+    client.admin.command("ping")
+    print("MongoDB connected successfully!")
+except Exception as e:
+    print("MongoDB connection failed:", e)
 
 db = client["travelgenie"]
 
