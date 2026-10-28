@@ -1,6 +1,5 @@
 import { throwForUnauthorized } from "./authSession";
-const API = import.meta.env.VITE_API_URL;
-export const getPersonalizedRecommendations = async (filters = {}) => {
+const API_BASE_URL = import.meta.env.VITE_API_URL;export const getPersonalizedRecommendations = async (filters = {}) => {
   const token = localStorage.getItem("access_token");
   if (!token) throw new Error("Sign in to see recommendations tailored to your profile.");
   const response = await fetch(`${API_BASE_URL}/recommendations`, {
